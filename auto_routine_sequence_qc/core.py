@@ -10,7 +10,7 @@ import uuid
 from typing import Iterator, Optional
 
 
-def find_run_dirs(config, check_upload_complete=True):
+def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=True):
     """
     Find sequencing run directories under the 'run_parent_dirs' listed in the config.
 
@@ -18,6 +18,8 @@ def find_run_dirs(config, check_upload_complete=True):
     :type config: dict[str, object]
     :param check_upload_complete: Check for presence of 'upload_complete.json' file.
     :type check_upload_complete: bool
+    :param check_qc_check_complete: Check for presence of 'qc_check_complete.json' file.
+    :type check_qc_check_complete: bool
     :return: Run directory. Keys: ['sequencing_run_id', 'run_dir', 'instrument_type']
     :rtype: Iterator[Optional[dict[str, str]]]
     """
@@ -38,6 +40,7 @@ def find_run_dirs(config, check_upload_complete=True):
             elif matches_nextseq_regex:
                 instrument_type = 'nextseq'
             upload_complete = os.path.exists(os.path.join(subdir, 'upload_complete.json'))
+            qc_check_complete = os.path.exists(os.path.join(subdir, 'qc_check_complete.json'))
             analysis_not_already_initiated = not os.path.exists(os.path.join(config['analysis_output_dir'], run_id))
             not_excluded = True
             if 'excluded_runs' in config:
@@ -54,6 +57,9 @@ def find_run_dirs(config, check_upload_complete=True):
             if check_upload_complete:
                 conditions_checked["upload_complete"] = upload_complete
 
+            if check_qc_check_complete:
+                conditions_checked["qc_check_complete"] = qc_check_complete
+
             conditions_met = list(conditions_checked.values())
             if all(conditions_met):
                 logging.info(json.dumps({"event_type": "run_directory_found", "sequencing_run_id": run_id, "run_directory_path": os.path.abspath(subdir.path)}))
@@ -66,7 +72,6 @@ def find_run_dirs(config, check_upload_complete=True):
             logging.debug(json.dumps({"event_type": "directory_skipped", "run_directory_path": os.path.abspath(subdir.path), "conditions_checked": conditions_checked}))
             yield None
 
-    
 
 def scan(config: dict[str, object]) -> Iterator[Optional[dict[str, object]]]:
     """
@@ -133,6 +138,15 @@ def analyze_run(config, run):
         try:
             subprocess.run(pipeline_command, capture_output=True, check=True)
             logging.info(json.dumps({"event_type": "analysis_completed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
+
+            qc_check_complete_src = os.path.abspath(os.path.join(run['run_dir'], 'qc_check_complete.json'))
+            qc_check_complete_dst = os.path.abspath(os.path.join(analysis_output_dir, 'qc_check_complete.json'))
+            if (os.path.exists(qc_check_complete_src)):
+                os.symlink(qc_check_complete_src, qc_check_complete_dst)
+                logging.info(json.dumps({"event_type": "qc_check_complete_symlink_created", "sequencing_run_id": analysis_run_id, "qc_check_complete_path": qc_check_complete_src}))
+            else:
+                logging.error(json.dumps({"event_type": "qc_check_complete_symlink_failed", "sequencing_run_id": analysis_run_id, "qc_check_complete_path": qc_check_complete_src}))
+
             shutil.rmtree(analysis_work_dir, ignore_errors=True)
             logging.info(json.dumps({"event_type": "analysis_work_dir_deleted", "sequencing_run_id": analysis_run_id, "analysis_work_dir_path": analysis_work_dir}))
         except subprocess.CalledProcessError as e:
