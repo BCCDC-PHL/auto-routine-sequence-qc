@@ -23,8 +23,8 @@ def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=Tr
     :return: Run directory. Keys: ['sequencing_run_id', 'run_dir', 'instrument_type']
     :rtype: Iterator[Optional[dict[str, str]]]
     """
-    miseq_run_id_regex = "\d{6}_M\d{5}_\d+_\d{9}-[A-Z0-9]{5}"
-    nextseq_run_id_regex = "\d{6}_VH\d{5}_\d+_[A-Z0-9]{9}"
+    miseq_run_id_regex = "\\d{6}_M\\d{5}_\\d+_\\d{9}-[A-Z0-9]{5}"
+    nextseq_run_id_regex = "\\d{6}_VH\\d{5}_\\d+_[A-Z0-9]{9}"
     run_parent_dirs = config['run_parent_dirs']
 
     for run_parent_dir in run_parent_dirs:
@@ -136,7 +136,8 @@ def analyze_run(config, run):
         logging.info(json.dumps({"event_type": "analysis_started", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
 
         try:
-            subprocess.run(pipeline_command, capture_output=True, check=True)
+            os.makedirs(analysis_work_dir)
+            subprocess.run(pipeline_command, capture_output=True, check=True, cwd=analysis_work_dir)
             logging.info(json.dumps({"event_type": "analysis_completed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
 
             qc_check_complete_src = os.path.abspath(os.path.join(run['run_dir'], 'qc_check_complete.json'))
