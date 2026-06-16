@@ -9,6 +9,9 @@ import uuid
 
 from typing import Iterator, Optional
 
+import auto_routine_sequence_qc.instrument as instrument
+
+
 
 def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=True):
     """
@@ -23,8 +26,7 @@ def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=Tr
     :return: Run directory. Keys: ['sequencing_run_id', 'run_dir', 'instrument_type']
     :rtype: Iterator[Optional[dict[str, str]]]
     """
-    miseq_run_id_regex = "\\d{6}_M\\d{5}_\\d+_\\d{9}-[A-Z0-9]{5}"
-    nextseq_run_id_regex = "\\d{6}_VH\\d{5}_\\d+_[A-Z0-9]{9}"
+
     run_parent_dirs = config['run_parent_dirs']
 
     for run_parent_dir in run_parent_dirs:
@@ -32,13 +34,7 @@ def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=Tr
 
         for subdir in subdirs:
             run_id = subdir.name
-            matches_miseq_regex = re.match(miseq_run_id_regex, run_id)
-            matches_nextseq_regex = re.match(nextseq_run_id_regex, run_id)
-            instrument_type = 'unknown'
-            if matches_miseq_regex:
-                instrument_type = 'miseq'
-            elif matches_nextseq_regex:
-                instrument_type = 'nextseq'
+            instrument_type = instrument.determine_instrument_type(run_id)
             upload_complete = os.path.exists(os.path.join(subdir, 'upload_complete.json'))
             qc_check_complete = os.path.exists(os.path.join(subdir, 'qc_check_complete.json'))
             analysis_not_already_initiated = not os.path.exists(os.path.join(config['analysis_output_dir'], run_id))
@@ -48,8 +44,7 @@ def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=Tr
 
             conditions_checked = {
                 "is_directory": subdir.is_dir(),
-                "matches_illumina_run_id_format": ((matches_miseq_regex is not None) or
-                                                   (matches_nextseq_regex is not None)),
+                "supported_run_id_format": instrument_type != "unknown",
                 "analysis_not_already_initiated": analysis_not_already_initiated,
                 "not_excluded": not_excluded,
             }
@@ -68,9 +63,9 @@ def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=Tr
                 run['sequencing_run_id'] = run_id
                 run['instrument_type'] = instrument_type
                 yield run
-        else:
-            logging.debug(json.dumps({"event_type": "directory_skipped", "run_directory_path": os.path.abspath(subdir.path), "conditions_checked": conditions_checked}))
-            yield None
+            else:
+                logging.debug(json.dumps({"event_type": "directory_skipped", "run_directory_path": os.path.abspath(subdir.path), "conditions_checked": conditions_checked}))
+                yield None
 
 
 def scan(config: dict[str, object]) -> Iterator[Optional[dict[str, object]]]:
