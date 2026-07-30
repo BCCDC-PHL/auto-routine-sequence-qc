@@ -115,12 +115,6 @@ def analyze_run(config, run):
         run['outdir'] = analysis_output_dir
         analysis_work_dir = os.path.abspath(os.path.join(base_analysis_work_dir, 'work-' + analysis_run_id + '-' + analysis_timestamp))
         analysis_trace_path = os.path.abspath(os.path.join(base_analysis_outdir, analysis_run_id, pipeline_short_name + '-' + pipeline_minor_version + '-output', analysis_run_id + '_trace.tsv'))
-        os.makedirs(analysis_work_dir)
-        pipeline_command = ['which', 'nextflow']
-        subprocess.run(pipeline_command, capture_output=False, check=True, env=env, cwd=analysis_work_dir)
-        pipeline_command = ['nextflow', '-version']
-        subprocess.run(pipeline_command, capture_output=False, check=True, env=env, cwd=analysis_work_dir)
-        exit()
         pipeline_command = [
             'nextflow',
             'run',
