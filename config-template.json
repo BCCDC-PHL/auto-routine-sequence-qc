@@ -1,0 +1,32 @@
+{
+    "run_parent_dirs": [
+	"/path/to/<INSTRUMENT_OUTPUTS>"
+    ],
+    "analysis_output_dir": "/path/to/routine-sequence-qc/analysis_by_run",
+    "analysis_work_dir": "/path/to/work/auto-routine-sequence-qc",
+    "notification_email_addresses": [
+	"someone@example.org",
+    ],
+    "send_notification_emails": false,
+    "scan_interval_seconds": 60,
+    "known_species_list": "known_species.csv",
+    "default_nextflow_version": "21.04.3",
+    "pipelines": [
+	{
+	    "pipeline_name": "BCCDC-PHL/routine-sequence-qc",
+	    "pipeline_version": "v0.4.5",
+            "nextflow_version": "25.04.2",
+	    "pipeline_parameters": {
+		"run_dir": null,
+		"instrument_type": null,
+		"kraken2_db": "/path/to/ref_databases/kraken2/2023-06-06_standard",
+		"bracken_db": "/path/to/ref_databases/kraken2/2023-06-06_standard",
+		"seqtk_fqchk_threshold": 30,
+		"mash_sketch_kmer_size": 21,
+		"mash_sketch_minimum_copies": 5,
+		"outdir": null
+	    }
+	}
+    ]
+    
+}

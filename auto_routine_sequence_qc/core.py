@@ -95,11 +95,17 @@ def analyze_run(config, run):
     """
     base_analysis_outdir = config['analysis_output_dir']
     base_analysis_work_dir = config['analysis_work_dir']
+    default_nextflow_version = config.get('default_nextflow_version', '21.04.3')
+    env = os.environ.copy()
+    env['NXF_VER'] = default_nextflow_version
     if 'notification_email_addresses' in config:
         notification_email_addresses = config['notification_email_addresses']
     else:
         notification_email_addresses = []
     for pipeline in config['pipelines']:
+        pipeline_nextflow_version = pipeline.get('nextflow_version', None)
+        if pipeline_nextflow_version:
+            env['NXF_VER'] = pipeline_nextflow_version
         pipeline_parameters = pipeline['pipeline_parameters']
         pipeline_short_name = pipeline['pipeline_name'].split('/')[1].replace('_', '-')
         pipeline_minor_version = '.'.join(pipeline['pipeline_version'].split('.')[0:2])
@@ -109,6 +115,12 @@ def analyze_run(config, run):
         run['outdir'] = analysis_output_dir
         analysis_work_dir = os.path.abspath(os.path.join(base_analysis_work_dir, 'work-' + analysis_run_id + '-' + analysis_timestamp))
         analysis_trace_path = os.path.abspath(os.path.join(base_analysis_outdir, analysis_run_id, pipeline_short_name + '-' + pipeline_minor_version + '-output', analysis_run_id + '_trace.tsv'))
+        os.makedirs(analysis_work_dir)
+        pipeline_command = ['which', 'nextflow']
+        subprocess.run(pipeline_command, capture_output=False, check=True, env=env, cwd=analysis_work_dir)
+        pipeline_command = ['nextflow', '-version']
+        subprocess.run(pipeline_command, capture_output=False, check=True, env=env, cwd=analysis_work_dir)
+        exit()
         pipeline_command = [
             'nextflow',
             'run',
