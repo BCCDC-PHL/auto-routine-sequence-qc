@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import uuid
 
+from pathlib import Path
 from typing import Iterator, Optional
 
 import auto_routine_sequence_qc.instrument as instrument
@@ -98,6 +99,8 @@ def analyze_run(config, run):
     default_nextflow_version = config.get('default_nextflow_version', '21.04.3')
     env = os.environ.copy()
     env['NXF_VER'] = default_nextflow_version
+    env['NXF_CONDA_CACHEDIR'] = str(Path.home() / '.conda' / 'envs')
+    env['NXF_APPTAINER_CACHEDIR'] = str(Path.home() / '.apptainer' / 'cache' / 'images')
     if 'notification_email_addresses' in config:
         notification_email_addresses = config['notification_email_addresses']
     else:
@@ -121,7 +124,6 @@ def analyze_run(config, run):
             pipeline['pipeline_name'],
             '-r', pipeline['pipeline_version'],
             '-profile', 'conda',
-            '--cache', os.path.join(os.path.expanduser('~'), '.conda/envs'),
             '-work-dir', analysis_work_dir,
             '-with-trace', analysis_trace_path,
         ]
