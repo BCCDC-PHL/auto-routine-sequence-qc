@@ -140,7 +140,7 @@ def analyze_run(config, run):
 
         try:
             os.makedirs(analysis_work_dir)
-            subprocess.run(pipeline_command, capture_output=False, check=True, cwd=analysis_work_dir)
+            subprocess.run(pipeline_command, capture_output=True, check=True, cwd=analysis_work_dir)
             logging.info(json.dumps({"event_type": "analysis_completed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
 
             qc_check_complete_src = os.path.abspath(os.path.join(run['run_dir'], 'qc_check_complete.json'))
