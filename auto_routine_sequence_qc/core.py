@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import uuid
 
+from pathlib import Path
 from typing import Iterator, Optional
 
 import auto_routine_sequence_qc.instrument as instrument
@@ -98,6 +99,8 @@ def analyze_run(config, run):
     default_nextflow_version = config.get('default_nextflow_version', '21.04.3')
     env = os.environ.copy()
     env['NXF_VER'] = default_nextflow_version
+    env['NXF_CONDA_CACHEDIR'] = str(Path.home() / '.conda' / 'envs')
+    env['NXF_APPTAINER_CACHEDIR'] = str(Path.home() / '.apptainer' / 'cache' / 'images')
     if 'notification_email_addresses' in config:
         notification_email_addresses = config['notification_email_addresses']
     else:
@@ -121,7 +124,6 @@ def analyze_run(config, run):
             pipeline['pipeline_name'],
             '-r', pipeline['pipeline_version'],
             '-profile', 'conda',
-            '--cache', os.path.join(os.path.expanduser('~'), '.conda/envs'),
             '-work-dir', analysis_work_dir,
             '-with-trace', analysis_trace_path,
         ]
@@ -138,7 +140,7 @@ def analyze_run(config, run):
 
         try:
             os.makedirs(analysis_work_dir)
-            subprocess.run(pipeline_command, capture_output=True, check=True, cwd=analysis_work_dir)
+            subprocess.run(pipeline_command, capture_output=False, check=True, cwd=analysis_work_dir)
             logging.info(json.dumps({"event_type": "analysis_completed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
 
             qc_check_complete_src = os.path.abspath(os.path.join(run['run_dir'], 'qc_check_complete.json'))
