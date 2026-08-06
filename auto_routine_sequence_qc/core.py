@@ -2,16 +2,15 @@ import datetime
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
-import uuid
 
 from pathlib import Path
 from typing import Iterator, Optional
 
 import auto_routine_sequence_qc.instrument as instrument
 
+log = logging.getLogger(__name__)
 
 
 def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=True):
@@ -58,14 +57,14 @@ def find_run_dirs(config, check_upload_complete=True, check_qc_check_complete=Tr
 
             conditions_met = list(conditions_checked.values())
             if all(conditions_met):
-                logging.info(json.dumps({"event_type": "run_directory_found", "sequencing_run_id": run_id, "run_directory_path": os.path.abspath(subdir.path)}))
+                log.info({"event_type": "run_directory_found", "sequencing_run_id": run_id, "run_directory_path": os.path.abspath(subdir.path)})
                 run = {}
                 run['run_dir'] = os.path.abspath(subdir.path)
                 run['sequencing_run_id'] = run_id
                 run['instrument_type'] = instrument_type
                 yield run
             else:
-                logging.debug(json.dumps({"event_type": "directory_skipped", "run_directory_path": os.path.abspath(subdir.path), "conditions_checked": conditions_checked}))
+                log.debug({"event_type": "directory_skipped", "run_directory_path": os.path.abspath(subdir.path), "conditions_checked": conditions_checked})
                 yield None
 
 
@@ -78,7 +77,7 @@ def scan(config: dict[str, object]) -> Iterator[Optional[dict[str, object]]]:
     :return: A run directory to analyze, or None. Keys: ['run_dir', 'sequencing_run_id', 'instrument_type']
     :rtype: Iterator[Optional[dict[str, object]]]
     """
-    logging.info(json.dumps({"event_type": "scan_start"}))
+    log.info({"event_type": "scan_start"})
     for run_dir in find_run_dirs(config):    
         yield run_dir
 
@@ -136,24 +135,24 @@ def analyze_run(config, run):
                 value = config_value
             pipeline_command += ['--' + flag, value]
             pipeline_command = list(map(str, pipeline_command))
-        logging.info(json.dumps({"event_type": "analysis_started", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
+        log.info({"event_type": "analysis_started", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)})
 
         try:
             os.makedirs(analysis_work_dir)
             subprocess.run(pipeline_command, capture_output=True, check=True, cwd=analysis_work_dir)
-            logging.info(json.dumps({"event_type": "analysis_completed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
+            log.info({"event_type": "analysis_completed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)})
 
             qc_check_complete_src = os.path.abspath(os.path.join(run['run_dir'], 'qc_check_complete.json'))
             qc_check_complete_dst = os.path.abspath(os.path.join(analysis_output_dir, 'qc_check_complete.json'))
             if (os.path.exists(qc_check_complete_src)):
                 os.symlink(qc_check_complete_src, qc_check_complete_dst)
-                logging.info(json.dumps({"event_type": "qc_check_complete_symlink_created", "sequencing_run_id": analysis_run_id, "qc_check_complete_path": qc_check_complete_src}))
+                log.info({"event_type": "qc_check_complete_symlink_created", "sequencing_run_id": analysis_run_id, "qc_check_complete_path": qc_check_complete_src})
             else:
-                logging.error(json.dumps({"event_type": "qc_check_complete_symlink_failed", "sequencing_run_id": analysis_run_id, "qc_check_complete_path": qc_check_complete_src}))
+                log.error({"event_type": "qc_check_complete_symlink_failed", "sequencing_run_id": analysis_run_id, "qc_check_complete_path": qc_check_complete_src})
 
             shutil.rmtree(analysis_work_dir, ignore_errors=True)
-            logging.info(json.dumps({"event_type": "analysis_work_dir_deleted", "sequencing_run_id": analysis_run_id, "analysis_work_dir_path": analysis_work_dir}))
+            log.info({"event_type": "analysis_work_dir_deleted", "sequencing_run_id": analysis_run_id, "analysis_work_dir_path": analysis_work_dir})
         except subprocess.CalledProcessError as e:
-            logging.error(json.dumps({"event_type": "analysis_failed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)}))
+            log.error({"event_type": "analysis_failed", "sequencing_run_id": analysis_run_id, "pipeline_command": " ".join(pipeline_command)})
         except OSError as e:
-            logging.error(json.dumps({"event_type": "delete_analysis_work_dir_failed", "sequencing_run_id": analysis_run_id, "analysis_work_dir_path": analysis_work_dir}))
+            log.error({"event_type": "delete_analysis_work_dir_failed", "sequencing_run_id": analysis_run_id, "analysis_work_dir_path": analysis_work_dir})
